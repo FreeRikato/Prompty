@@ -1,0 +1,41 @@
+<svg
+  width="200"
+  height="200"
+  viewBox="0 0 200 200"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <!-- Background Gradient Definition -->
+  <defs>
+    <radialGradient id="bg-gradient" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#3B82F6" />
+      <stop offset="100%" stop-color="#1D4ED8" />
+    </radialGradient>
+  </defs>
+  
+  <!-- Circular Background with Gradient -->
+  <circle
+    cx="90"
+    cy="100"
+    r="90"
+    fill="url(#bg-gradient)"
+  />
+  
+  <!-- Stylish "P" Path -->
+  <path
+    d="
+      M 65 150
+      V 60
+      Q 65 50, 75 50
+      H 105
+      Q 115 50, 115 60
+      V 80
+      Q 115 90, 105 90
+      H 85
+    "
+    fill="none"
+    stroke="#FFFFFF"
+    stroke-width="20"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>
