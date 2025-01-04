@@ -1,106 +1,89 @@
-import { useState, useEffect } from 'react'
-import './App.css'
+import "./App.css";
+import PopupButton from "./components/PopupButton";
+import { handleClickPopup } from "./utils/handleClickPopup";
+import { useSelectedText } from "./hooks/useSelectedText";
+import { defaultPrompt, definitionPrompt } from "./utils/prompts";
+import { getllm } from "./utils/llmDefinition";
+import React from "react";
 
 function App() {
-  const [selectedText, setSelectedText] = useState('')
+  const { selectedText, surroundingText } = useSelectedText();
+  const [definition, setDefinition] = React.useState<string | null>(null);
 
-  useEffect(() => {
-    const getSelectedTextFromTab = async () => {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-
-      if (tab && tab.id) {
-        try {
-          const response = await chrome.scripting.executeScript({
-            target: { tabId: tab.id },
-            func: () => {
-              const selection = window.getSelection();
-              return selection ? selection.toString() : '';
-            },
-          })
-          setSelectedText(response[0].result as string)
-        } catch (error) {
-          console.error("Could not inject script:", error)
-          setSelectedText("Error fetching selected text.")
-        }
+  React.useEffect(() => {
+    const fetchDefinition = async () => {
+      if (selectedText && selectedText.split(" ").length < 5) {
+        const result = await directDefinition(selectedText, surroundingText);
+        setDefinition(result);
+      } else {
+        setDefinition(null);
       }
-    }
+    };
+    fetchDefinition();
+  }, [selectedText, surroundingText]);
 
-    getSelectedTextFromTab()
-  }, [])
-
-  const handleSurpriseClick = async () => {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-    if (tab.id) {
-      chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        func: () => {
-          const popupContainer = document.createElement('div');
-          popupContainer.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10000;
-          `;
-
-          const popupContent = document.createElement('div');
-          popupContent.style.cssText = `
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-          `;
-
-          const message = document.createElement('p');
-          message.style.cssText = `
-            color: #333;
-            margin-bottom: 15px;
-          `;
-          message.textContent = 'Hello World';
-
-          const closeButton = document.createElement('button');
-          closeButton.style.cssText = `
-            padding: 8px 16px;
-            background: #4F46E5;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-          `;
-          closeButton.textContent = 'Close';
-          closeButton.onclick = () => {
-            document.body.removeChild(popupContainer);
-          };
-
-          popupContent.appendChild(message);
-          popupContent.appendChild(closeButton);
-          popupContainer.appendChild(popupContent);
-          document.body.appendChild(popupContainer);
-        },
-      });
-    }
+  interface AiFunctionProps {
+    task?: string;
+    selectedText?: string;
   }
 
+  const directDefinition = async (selectedText: string, surroundingText: string): Promise<string> => {
+    const llm = await getllm();
+    if (!llm) return "API key not set.";
+
+    if (selectedText.split(" ").length < 3) {
+      const chain = definitionPrompt.pipe(llm);
+      const result = await chain.invoke({
+        selected_text: selectedText,
+        surrounding_text: surroundingText,
+      });
+      const definition = JSON.stringify(result.content);
+      return definition;
+    } else {
+      return selectedText;
+    }
+  };
+
+  const aiFunction = async ({ task, selectedText }: AiFunctionProps) => {
+    const llm = await getllm();
+    if (!llm) return "API key not set.";
+
+    const chain = defaultPrompt.pipe(llm);
+    const result = await chain.invoke({
+      task: task,
+      selected_text: selectedText,
+    });
+    if (selectedText) {
+      console.log(JSON.stringify(result.content));
+      handleClickPopup(surroundingText);
+    } else {
+      handleClickPopup("No text selected");
+    }
+  };
+
   return (
-    <div className="bg-gray-800 text-white p-6 shadow-xl min-w-[300px] transition-all duration-300">
-      <div className="mb-4">
-        <p className="text-sm">
-          Selected Text: <b className="text-blue-300">{selectedText}</b>
-        </p>
+    <div className="bg-gray-900 text-gray-100 p-6 shadow-2xl min-w-[300px] transition-all duration-300 flex flex-col gap-4">
+      <div className="mb-2">
+        {selectedText && selectedText.split(" ").length < 5 ? ( 
+          <p className="text-sm">
+            Definition: <b className="text-blue-400">{definition}</b>
+          </p>
+        ) : (
+          <p className="text-sm">
+            Selected Text: <b className="text-blue-400">{selectedText}</b>
+          </p>
+        )}
       </div>
-      <button 
-        onClick={handleSurpriseClick}
-        className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md transition-colors"
-      >
-        Surprise
-      </button>
+      <div className="flex flex-col gap-2">
+        <PopupButton
+          text="Surrounding Text"
+          onClick={() =>
+            aiFunction({ task: "Surrounding Text", selectedText })
+          }
+        />
+      </div>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;
