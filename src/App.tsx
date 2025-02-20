@@ -4,13 +4,14 @@ import { handleClickPopup } from "./utils/handleClickPopup";
 import { useSelectedText } from "./hooks/useSelectedText";
 import { defaultPrompt, definitionPrompt } from "./utils/prompts";
 import { getllm } from "./utils/llmDefinition";
-import React from "react";
+import {useState, useEffect} from "react";
 
 function App() {
   const { selectedText, surroundingText } = useSelectedText();
-  const [definition, setDefinition] = React.useState<string | null>(null);
+  const [definition, setDefinition] = useState<string | null>(null);
 
-  React.useEffect(() => {
+
+  useEffect(() => {
     const fetchDefinition = async () => {
       if (selectedText && selectedText.split(" ").length < 5) {
         const result = await directDefinition(selectedText, surroundingText);
